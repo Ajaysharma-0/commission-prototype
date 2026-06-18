@@ -11,7 +11,7 @@ function serializeHotel(h: {
   price: { toString: () => string } | number;
   partnerId: string;
   status: string;
-  partner?: { id: string; name: string; commissionRate: unknown };
+  partner?: { id: string; name: string };
   createdAt?: Date;
   updatedAt?: Date;
 }) {
@@ -25,7 +25,6 @@ function serializeHotel(h: {
       ? {
           id: h.partner.id,
           name: h.partner.name,
-          commissionRate: parseFloat(String(h.partner.commissionRate)),
         }
       : undefined,
     createdAt: h.createdAt,

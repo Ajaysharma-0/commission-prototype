@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../../lib/prisma";
 import { CommissionEngine } from "../commission/commission.engine";
+import { getSlotCommissionRate } from "../commission/commission.calculator";
 import { createBookingSchema } from "../shared/dto";
 import { updateConfigSchema } from "../shared/dto";
 import { AppError } from "../../middleware/errorHandler";
@@ -206,13 +207,12 @@ commissionRouter.get("/revenue-report", async (_req, res, next) => {
 commissionRouter.get("/wallets", async (_req, res, next) => {
   try {
     const wallets = await prisma.partnerWallet.findMany({
-      include: { partner: { select: { name: true, commissionRate: true } } },
+      include: { partner: { select: { name: true } } },
     });
     res.json(
       wallets.map((w) => ({
         partnerId: w.partnerId,
         partnerName: w.partner.name,
-        commissionRate: toNum(w.partner.commissionRate),
         totalCredit: toNum(w.totalCredit),
         totalDebit: toNum(w.totalDebit),
         availableBalance: toNum(w.availableBalance),
@@ -223,6 +223,30 @@ commissionRouter.get("/wallets", async (_req, res, next) => {
   }
 });
 
+function serializeConfig(config: {
+  id: string;
+  travacotPercentage: unknown;
+  transactionFeePercentage: unknown;
+  safetyNetPercentage: unknown;
+  slot1CommissionPercentage: unknown;
+  slot2CommissionPercentage: unknown;
+  slot3CommissionPercentage: unknown;
+  commissionBase: string;
+  active: boolean;
+}) {
+  return {
+    id: config.id,
+    travacotPercentage: toNum(config.travacotPercentage),
+    transactionFeePercentage: toNum(config.transactionFeePercentage),
+    safetyNetPercentage: toNum(config.safetyNetPercentage),
+    slot1CommissionPercentage: toNum(config.slot1CommissionPercentage),
+    slot2CommissionPercentage: toNum(config.slot2CommissionPercentage),
+    slot3CommissionPercentage: toNum(config.slot3CommissionPercentage),
+    commissionBase: config.commissionBase,
+    active: config.active,
+  };
+}
+
 configRouter.get("/", async (_req, res, next) => {
   try {
     const config = await prisma.commissionConfiguration.findFirst({
@@ -232,14 +256,7 @@ configRouter.get("/", async (_req, res, next) => {
     if (!config) {
       return res.json(null);
     }
-    res.json({
-      id: config.id,
-      travacotPercentage: toNum(config.travacotPercentage),
-      transactionFeePercentage: toNum(config.transactionFeePercentage),
-      safetyNetPercentage: toNum(config.safetyNetPercentage),
-      commissionBase: config.commissionBase,
-      active: config.active,
-    });
+    res.json(serializeConfig(config));
   } catch (e) {
     next(e);
   }
@@ -264,19 +281,15 @@ configRouter.put("/", async (req, res, next) => {
           travacotPercentage: data.travacotPercentage ?? 15,
           transactionFeePercentage: data.transactionFeePercentage ?? 4,
           safetyNetPercentage: data.safetyNetPercentage ?? 50,
+          slot1CommissionPercentage: data.slot1CommissionPercentage ?? 20,
+          slot2CommissionPercentage: data.slot2CommissionPercentage ?? 15,
+          slot3CommissionPercentage: data.slot3CommissionPercentage ?? 10,
           commissionBase: data.commissionBase ?? "SAFETY_NET",
         },
       });
     }
 
-    res.json({
-      id: config.id,
-      travacotPercentage: toNum(config.travacotPercentage),
-      transactionFeePercentage: toNum(config.transactionFeePercentage),
-      safetyNetPercentage: toNum(config.safetyNetPercentage),
-      commissionBase: config.commissionBase,
-      active: config.active,
-    });
+    res.json(serializeConfig(config));
   } catch (e) {
     next(e);
   }
@@ -284,6 +297,11 @@ configRouter.put("/", async (req, res, next) => {
 
 configRouter.get("/customers", async (_req, res, next) => {
   try {
+    const config = await prisma.commissionConfiguration.findFirst({
+      where: { active: true },
+      orderBy: { createdAt: "desc" },
+    });
+
     const customers = await prisma.customer.findMany({
       include: {
         partnerSlots: {
@@ -301,7 +319,9 @@ configRouter.get("/customers", async (_req, res, next) => {
           slotNumber: s.slotNumber,
           partnerId: s.partnerId,
           partnerName: s.partner.name,
-          commissionRate: toNum(s.partner.commissionRate),
+          commissionRate: config
+            ? toNum(getSlotCommissionRate(config, s.slotNumber))
+            : 0,
         })),
       }))
     );

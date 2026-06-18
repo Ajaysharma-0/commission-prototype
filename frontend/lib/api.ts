@@ -21,7 +21,6 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export interface Partner {
   id: string;
   name: string;
-  commissionRate: number;
   status: string;
 }
 
@@ -31,7 +30,7 @@ export interface Hotel {
   price: number;
   partnerId: string;
   status: string;
-  partner?: { id: string; name: string; commissionRate: number };
+  partner?: { id: string; name: string };
 }
 
 export interface Config {
@@ -39,6 +38,9 @@ export interface Config {
   travacotPercentage: number;
   transactionFeePercentage: number;
   safetyNetPercentage: number;
+  slot1CommissionPercentage: number;
+  slot2CommissionPercentage: number;
+  slot3CommissionPercentage: number;
   commissionBase: string;
   active: boolean;
 }
@@ -104,7 +106,7 @@ export interface CustomerWithSlots {
 
 export const api = {
   getPartners: () => request<Partner[]>("/partners"),
-  createPartner: (data: { name: string; commissionRate: number }) =>
+  createPartner: (data: { name: string }) =>
     request<Partner>("/partners", { method: "POST", body: JSON.stringify(data) }),
   updatePartner: (id: string, data: Partial<Partner>) =>
     request<Partner>(`/partners/${id}`, { method: "PUT", body: JSON.stringify(data) }),
@@ -134,7 +136,6 @@ export const api = {
       Array<{
         partnerId: string;
         partnerName: string;
-        commissionRate: number;
         availableBalance: number;
       }>
     >("/commission/wallets"),

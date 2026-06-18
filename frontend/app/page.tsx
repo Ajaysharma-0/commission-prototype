@@ -34,7 +34,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [partnerForm, setPartnerForm] = useState({ name: "", commissionRate: "" });
+  const [partnerForm, setPartnerForm] = useState({ name: "" });
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
 
   const [hotelForm, setHotelForm] = useState({
@@ -48,6 +48,9 @@ export default function DashboardPage() {
     travacotPercentage: "15",
     transactionFeePercentage: "4",
     safetyNetPercentage: "50",
+    slot1CommissionPercentage: "20",
+    slot2CommissionPercentage: "15",
+    slot3CommissionPercentage: "10",
     commissionBase: "SAFETY_NET",
   });
 
@@ -83,6 +86,9 @@ export default function DashboardPage() {
           travacotPercentage: String(c.travacotPercentage),
           transactionFeePercentage: String(c.transactionFeePercentage),
           safetyNetPercentage: String(c.safetyNetPercentage),
+          slot1CommissionPercentage: String(c.slot1CommissionPercentage),
+          slot2CommissionPercentage: String(c.slot2CommissionPercentage),
+          slot3CommissionPercentage: String(c.slot3CommissionPercentage),
           commissionBase: c.commissionBase,
         });
       }
@@ -103,16 +109,14 @@ export default function DashboardPage() {
       if (editingPartner) {
         await api.updatePartner(editingPartner.id, {
           name: partnerForm.name,
-          commissionRate: parseFloat(partnerForm.commissionRate),
         });
         setEditingPartner(null);
       } else {
         await api.createPartner({
           name: partnerForm.name,
-          commissionRate: parseFloat(partnerForm.commissionRate),
         });
       }
-      setPartnerForm({ name: "", commissionRate: "" });
+      setPartnerForm({ name: "" });
       await loadAll();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Partner save failed");
@@ -150,6 +154,9 @@ export default function DashboardPage() {
         travacotPercentage: parseFloat(configForm.travacotPercentage),
         transactionFeePercentage: parseFloat(configForm.transactionFeePercentage),
         safetyNetPercentage: parseFloat(configForm.safetyNetPercentage),
+        slot1CommissionPercentage: parseFloat(configForm.slot1CommissionPercentage),
+        slot2CommissionPercentage: parseFloat(configForm.slot2CommissionPercentage),
+        slot3CommissionPercentage: parseFloat(configForm.slot3CommissionPercentage),
         commissionBase: configForm.commissionBase as Config["commissionBase"],
       });
       await loadAll();
@@ -264,36 +271,18 @@ export default function DashboardPage() {
           {/* Section 1 - Partner Management */}
           <Card
             title="Partner Management"
-            description="Add, edit, delete partners and set commission rates"
+            description="Add, edit, delete partners — commission is slot-based, not per partner"
           >
             <form onSubmit={handlePartnerSubmit} className="space-y-3 mb-4">
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  label="Partner Name"
-                  value={partnerForm.name}
-                  onChange={(e) =>
-                    setPartnerForm({ ...partnerForm, name: e.target.value })
-                  }
-                  placeholder="Partner A"
-                  required
-                />
-                <Input
-                  label="Commission %"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="100"
-                  value={partnerForm.commissionRate}
-                  onChange={(e) =>
-                    setPartnerForm({
-                      ...partnerForm,
-                      commissionRate: e.target.value,
-                    })
-                  }
-                  placeholder="20"
-                  required
-                />
-              </div>
+              <Input
+                label="Partner Name"
+                value={partnerForm.name}
+                onChange={(e) =>
+                  setPartnerForm({ ...partnerForm, name: e.target.value })
+                }
+                placeholder="Partner A"
+                required
+              />
               <div className="flex gap-2">
                 <Button type="submit">
                   {editingPartner ? "Update Partner" : "Add Partner"}
@@ -304,7 +293,7 @@ export default function DashboardPage() {
                     variant="ghost"
                     onClick={() => {
                       setEditingPartner(null);
-                      setPartnerForm({ name: "", commissionRate: "" });
+                      setPartnerForm({ name: "" });
                     }}
                   >
                     Cancel
@@ -313,10 +302,9 @@ export default function DashboardPage() {
               </div>
             </form>
             <Table
-              headers={["Name", "Rate", "Status", "Actions"]}
+              headers={["Name", "Status", "Actions"]}
               rows={partners.map((p) => [
                 p.name,
-                `${p.commissionRate}%`,
                 <Badge key={p.id}>{p.status}</Badge>,
                 <div key={`a-${p.id}`} className="flex gap-2">
                   <Button
@@ -326,7 +314,6 @@ export default function DashboardPage() {
                       setEditingPartner(p);
                       setPartnerForm({
                         name: p.name,
-                        commissionRate: String(p.commissionRate),
                       });
                     }}
                   >
@@ -463,7 +450,7 @@ export default function DashboardPage() {
         {/* Section 3 - Configuration */}
         <Card
           title="Configuration"
-          description="Revenue percentages — no code changes required"
+          description="Revenue and slot commission percentages — no code changes required"
         >
           <form
             onSubmit={handleConfigSave}
@@ -519,6 +506,48 @@ export default function DashboardPage() {
               <option value="OWNER_NET_REVENUE">Owner Net Revenue</option>
               <option value="TRAVACOT_REVENUE">Travacot Revenue</option>
             </Select>
+            <Input
+              label="Slot 1 Commission %"
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              value={configForm.slot1CommissionPercentage}
+              onChange={(e) =>
+                setConfigForm({
+                  ...configForm,
+                  slot1CommissionPercentage: e.target.value,
+                })
+              }
+            />
+            <Input
+              label="Slot 2 Commission %"
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              value={configForm.slot2CommissionPercentage}
+              onChange={(e) =>
+                setConfigForm({
+                  ...configForm,
+                  slot2CommissionPercentage: e.target.value,
+                })
+              }
+            />
+            <Input
+              label="Slot 3 Commission %"
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              value={configForm.slot3CommissionPercentage}
+              onChange={(e) =>
+                setConfigForm({
+                  ...configForm,
+                  slot3CommissionPercentage: e.target.value,
+                })
+              }
+            />
             <div className="sm:col-span-2 lg:col-span-4">
               <Button type="submit">Save Configuration</Button>
             </div>
@@ -634,7 +663,7 @@ export default function DashboardPage() {
           {/* Section 6 - Customer Slots */}
           <Card
             title="Customer Slots"
-            description="Up to 3 commission partners per customer"
+            description="Partners assigned per customer — rate comes from slot config"
           >
             {bookingForm.customerName ? (
               <div className="mb-3">
@@ -644,7 +673,7 @@ export default function DashboardPage() {
               </div>
             ) : null}
             <Table
-              headers={["Slot", "Partner", "Rate", "Commission"]}
+              headers={["Slot", "Partner", "Slot Rate", "Commission"]}
               rows={
                 displaySlots.length > 0
                   ? displaySlots.map((s) => [
@@ -656,24 +685,27 @@ export default function DashboardPage() {
                   : [1, 2, 3].map((n) => [
                       `Slot ${n}`,
                       "—",
-                      "—",
+                      config
+                        ? `${[config.slot1CommissionPercentage, config.slot2CommissionPercentage, config.slot3CommissionPercentage][n - 1]}%`
+                        : "—",
                       "—",
                     ])
               }
             />
           </Card>
 
-          {/* Section 7 - Partner Commission */}
+          {/* Section 7 - Slot Commission Breakdown */}
           <Card
-            title="Partner Commission"
-            description="Commission per slotted partner"
+            title="Slot Commission Breakdown"
+            description="Commission per slot on the latest booking"
           >
             <Table
-              headers={["Partner", "Rate", "Commission Amount"]}
+              headers={["Partner", "Slot", "Slot Rate", "Commission Amount"]}
               rows={
                 displayCommissions.length > 0
                   ? displayCommissions.map((c) => [
                       c.partnerName,
+                      `Slot ${c.slotNumber}`,
                       `${c.commissionRate}%`,
                       formatCurrency(c.commissionAmount),
                     ])

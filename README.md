@@ -104,9 +104,9 @@ CommissionEngine.processBooking({
 
 ## Seed Data
 
-- Partners A (20%), B (15%), C (10%), D (12%)
+- Partners A, B, C, D (no per-partner commission rates)
 - 4 hotels mapped to partners
-- Default config: Travacot 15%, Transaction Fee 4%, Safety Net 50%
+- Default config: Travacot 15%, Transaction Fee 4%, Safety Net 50%, Slot commissions 20% / 15% / 10%
 
 ## Formulas
 
@@ -114,6 +114,6 @@ CommissionEngine.processBooking({
 - **Transaction Fee** = Booking Amount × Transaction Fee %
 - **Owner Net Revenue** = Travacot Revenue − Transaction Fee
 - **Safety Net** = Owner Net Revenue × Safety Net %
-- **Partner Commission** = Commission Base × Partner Rate %
+- **Slot Commission** = Commission Base × Slot Rate % (rate depends on slot 1/2/3, not the partner)
 
 Commission base is configurable: Safety Net, Owner Net Revenue, or Travacot Revenue.

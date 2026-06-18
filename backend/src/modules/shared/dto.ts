@@ -2,7 +2,6 @@ import { z } from "zod";
 
 export const createPartnerSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  commissionRate: z.number().min(0).max(100),
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
 });
 
@@ -21,6 +20,9 @@ export const updateConfigSchema = z.object({
   travacotPercentage: z.number().min(0).max(100).optional(),
   transactionFeePercentage: z.number().min(0).max(100).optional(),
   safetyNetPercentage: z.number().min(0).max(100).optional(),
+  slot1CommissionPercentage: z.number().min(0).max(100).optional(),
+  slot2CommissionPercentage: z.number().min(0).max(100).optional(),
+  slot3CommissionPercentage: z.number().min(0).max(100).optional(),
   commissionBase: z
     .enum(["SAFETY_NET", "OWNER_NET_REVENUE", "TRAVACOT_REVENUE"])
     .optional(),

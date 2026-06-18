@@ -9,6 +9,7 @@ import {
   calculatePartnerCommission,
   calculateRevenue,
   getCommissionBaseAmount,
+  getSlotCommissionRate,
 } from "./commission.calculator";
 
 export type ProductType = "HOTEL" | "FLIGHT" | "PACKAGE" | "ACTIVITY" | "VISA" | "INSURANCE";
@@ -158,10 +159,8 @@ export class CommissionEngine {
       const partnerCommissions: ProcessBookingResult["partnerCommissions"] = [];
 
       for (const slot of allSlots) {
-        const amount = calculatePartnerCommission(
-          commissionBase,
-          slot.partner.commissionRate
-        );
+        const slotRate = getSlotCommissionRate(config, slot.slotNumber);
+        const amount = calculatePartnerCommission(commissionBase, slotRate);
 
         await tx.bookingPartnerCommission.create({
           data: {
@@ -169,7 +168,7 @@ export class CommissionEngine {
             customerId: input.customerId,
             partnerId: slot.partnerId,
             slotNumber: slot.slotNumber,
-            commissionRate: slot.partner.commissionRate,
+            commissionRate: slotRate,
             commissionAmount: amount,
           },
         });
@@ -206,7 +205,7 @@ export class CommissionEngine {
           partnerId: slot.partnerId,
           partnerName: slot.partner.name,
           slotNumber: slot.slotNumber,
-          commissionRate: toNumber(slot.partner.commissionRate),
+          commissionRate: toNumber(slotRate),
           commissionAmount: toNumber(amount),
         });
       }
@@ -223,11 +222,12 @@ export class CommissionEngine {
       const commission = result.partnerCommissions.find(
         (c) => c.slotNumber === slot.slotNumber
       );
+      const slotRate = getSlotCommissionRate(config, slot.slotNumber);
       return {
         slotNumber: slot.slotNumber,
         partnerId: slot.partnerId,
         partnerName: slot.partner.name,
-        commissionRate: toNumber(slot.partner.commissionRate),
+        commissionRate: toNumber(slotRate),
         commissionAmount: commission?.commissionAmount ?? 0,
       };
     });
@@ -248,6 +248,15 @@ export class CommissionEngine {
   }
 
   static async getCustomerSlots(customerId: string) {
+    const config = await prisma.commissionConfiguration.findFirst({
+      where: { active: true },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!config) {
+      throw new AppError(400, "No active commission configuration found");
+    }
+
     const slots = await prisma.customerPartnerSlot.findMany({
       where: { customerId },
       include: { partner: true },
@@ -258,7 +267,7 @@ export class CommissionEngine {
       slotNumber: s.slotNumber,
       partnerId: s.partnerId,
       partnerName: s.partner.name,
-      commissionRate: toNumber(s.partner.commissionRate),
+      commissionRate: toNumber(getSlotCommissionRate(config, s.slotNumber)),
       assignedAt: s.assignedAt,
     }));
   }

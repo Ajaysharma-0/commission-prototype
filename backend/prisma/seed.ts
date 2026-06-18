@@ -8,22 +8,25 @@ async function main() {
       travacotPercentage: 15,
       transactionFeePercentage: 4,
       safetyNetPercentage: 50,
+      slot1CommissionPercentage: 20,
+      slot2CommissionPercentage: 15,
+      slot3CommissionPercentage: 10,
       commissionBase: "SAFETY_NET",
       active: true,
     },
   });
 
   const partnerA = await prisma.partner.create({
-    data: { name: "Partner A", commissionRate: 20, status: "ACTIVE" },
+    data: { name: "Partner A", status: "ACTIVE" },
   });
   const partnerB = await prisma.partner.create({
-    data: { name: "Partner B", commissionRate: 15, status: "ACTIVE" },
+    data: { name: "Partner B", status: "ACTIVE" },
   });
   const partnerC = await prisma.partner.create({
-    data: { name: "Partner C", commissionRate: 10, status: "ACTIVE" },
+    data: { name: "Partner C", status: "ACTIVE" },
   });
   const partnerD = await prisma.partner.create({
-    data: { name: "Partner D", commissionRate: 12, status: "ACTIVE" },
+    data: { name: "Partner D", status: "ACTIVE" },
   });
 
   for (const p of [partnerA, partnerB, partnerC, partnerD]) {

@@ -88,7 +88,7 @@ All revenue and commission calculations must be handled by the Commission Engine
 8. Safety net is calculated.
 9. Customer partner slots are checked.
 10. New partner is assigned if a slot is available.
-11. Dynamic partner commissions are calculated.
+11. Dynamic partner commissions are calculated using **slot-wise** predefined rates.
 12. Commission records are stored.
 13. Partner wallet balances are updated.
 
@@ -152,7 +152,7 @@ Percentages should be configurable from the database.
 
 ---
 
-# 7. Partner Commission System
+# 7. Customer Slot System
 
 Each customer can have a maximum of three commission partners.
 
@@ -163,6 +163,8 @@ Slots:
 * Slot 3
 
 Only these three partners are eligible for commissions.
+
+Commission rates are **not** set per partner. Each slot has a configurable commission percentage stored in `commission_configuration` (see Section 9).
 
 Once all slots are occupied, no new partner is assigned.
 
@@ -204,32 +206,42 @@ Partner D receives no commission.
 
 ---
 
-# 9. Dynamic Commission Rate
+# 9. Slot-Wise Commission Rates
 
-Every partner has its own commission percentage.
+Commission percentages are **not** set per partner.
 
-Example
+Instead, each customer slot has a **predefined commission rate** configured in the system:
 
-| Partner   | Commission |
-| --------- | ---------- |
-| Partner A | 20%        |
-| Partner B | 15%        |
-| Partner C | 10%        |
+| Slot    | Commission |
+| ------- | ---------- |
+| Slot 1  | 20%        |
+| Slot 2  | 15%        |
+| Slot 3  | 10%        |
 
-Commission must never be hardcoded.
+When a partner is assigned to a slot (because their mapped hotel was booked for the first time), that partner earns the **slot rate** — not a partner-specific rate.
 
-The engine should always read the current commission rate from the database.
+Example:
+
+* Partner A is assigned to **Slot 1** → earns **20%** on every future booking for that customer
+* Partner B is assigned to **Slot 2** → earns **15%**
+* Partner C is assigned to **Slot 3** → earns **10%**
+
+Commission rates must never be hardcoded in application logic.
+
+The engine should always read the current slot commission rates from the database configuration.
 
 ---
 
 # 10. Commission Calculation
 
 ```
-Partner Commission
+Slot Commission
 
 =
-Commission Base × Partner Commission Rate
+Commission Base × Slot Commission Rate
 ```
+
+The commission rate used is determined by the **slot number** (1, 2, or 3), not by which partner occupies the slot.
 
 The commission base should be configurable, allowing future changes without code modifications.
 
@@ -244,7 +256,8 @@ Create a modern single-page admin dashboard.
 * Add Partner
 * Edit Partner
 * Delete Partner
-* Set Commission Percentage
+
+Partners do **not** have individual commission rates. Commission is determined by slot assignment.
 
 ---
 
@@ -266,6 +279,10 @@ Manage:
 * Travacot Revenue %
 * Transaction Fee %
 * Safety Net %
+* **Slot 1 Commission %**
+* **Slot 2 Commission %**
+* **Slot 3 Commission %**
+* Commission Base
 
 No code changes should be required when these values change.
 
@@ -315,33 +332,37 @@ Slot 1
 
 Partner A
 
-20%
+20% (Slot 1 rate)
 
 Slot 2
 
 Partner B
 
-15%
+15% (Slot 2 rate)
 
 Slot 3
 
 Partner C
 
-10%
+10% (Slot 3 rate)
 
 ---
 
-### Section 7 - Partner Commission
+### Section 7 - Slot Commission Breakdown
 
 Display:
 
 Partner
 
-Rate
+Slot
+
+Rate (slot-wise)
 
 Commission Amount
 
 Partner A
+
+Slot 1
 
 20%
 
@@ -349,11 +370,15 @@ Partner A
 
 Partner B
 
+Slot 2
+
 15%
 
 ₹Y
 
 Partner C
+
+Slot 3
 
 10%
 
@@ -387,9 +412,10 @@ Display:
 
 * id
 * name
-* commission_rate
 * status
 * timestamps
+
+(No commission_rate — partners do not have individual rates.)
 
 ---
 
@@ -428,6 +454,10 @@ Display:
 * travacot_percentage
 * transaction_fee_percentage
 * safety_net_percentage
+* slot1_commission_percentage
+* slot2_commission_percentage
+* slot3_commission_percentage
+* commission_base
 * active
 
 ---
@@ -465,7 +495,7 @@ Stores booking revenue calculations independently.
 * customer_id
 * partner_id
 * slot_number
-* commission_rate
+* commission_rate (snapshot of the slot rate at booking time)
 * commission_amount
 * status
 

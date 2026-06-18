@@ -13,6 +13,9 @@ export interface CommissionConfig {
   travacotPercentage: Decimal;
   transactionFeePercentage: Decimal;
   safetyNetPercentage: Decimal;
+  slot1CommissionPercentage: Decimal;
+  slot2CommissionPercentage: Decimal;
+  slot3CommissionPercentage: Decimal;
   commissionBase: CommissionBase;
 }
 
@@ -60,4 +63,25 @@ export function calculatePartnerCommission(
   commissionRate: Decimal
 ): Decimal {
   return baseAmount.mul(commissionRate).div(100);
+}
+
+export function getSlotCommissionRate(
+  config: Pick<
+    CommissionConfig,
+    | "slot1CommissionPercentage"
+    | "slot2CommissionPercentage"
+    | "slot3CommissionPercentage"
+  >,
+  slotNumber: number
+): Decimal {
+  switch (slotNumber) {
+    case 1:
+      return config.slot1CommissionPercentage;
+    case 2:
+      return config.slot2CommissionPercentage;
+    case 3:
+      return config.slot3CommissionPercentage;
+    default:
+      throw new Error(`Invalid slot number: ${slotNumber}`);
+  }
 }

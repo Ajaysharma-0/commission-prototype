@@ -36,7 +36,6 @@ enum CommissionStatus {
 model Partner {
   id              String   @id @default(uuid())
   name            String
-  commissionRate  Decimal  @map("commission_rate") @db.Decimal(5, 2)
   status          PartnerStatus @default(ACTIVE)
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
@@ -96,14 +95,17 @@ model Booking {
 }
 
 model CommissionConfiguration {
-  id                      String         @id @default(uuid())
-  travacotPercentage      Decimal        @map("travacot_percentage") @db.Decimal(5, 2)
-  transactionFeePercentage Decimal       @map("transaction_fee_percentage") @db.Decimal(5, 2)
-  safetyNetPercentage     Decimal        @map("safety_net_percentage") @db.Decimal(5, 2)
-  commissionBase          CommissionBase @default(SAFETY_NET) @map("commission_base")
-  active                  Boolean        @default(true)
-  createdAt               DateTime       @default(now()) @map("created_at")
-  updatedAt               DateTime       @updatedAt @map("updated_at")
+  id                       String         @id @default(uuid())
+  travacotPercentage       Decimal        @map("travacot_percentage") @db.Decimal(5, 2)
+  transactionFeePercentage Decimal        @map("transaction_fee_percentage") @db.Decimal(5, 2)
+  safetyNetPercentage      Decimal        @map("safety_net_percentage") @db.Decimal(5, 2)
+  slot1CommissionPercentage Decimal       @default(20) @map("slot1_commission_percentage") @db.Decimal(5, 2)
+  slot2CommissionPercentage Decimal       @default(15) @map("slot2_commission_percentage") @db.Decimal(5, 2)
+  slot3CommissionPercentage Decimal       @default(10) @map("slot3_commission_percentage") @db.Decimal(5, 2)
+  commissionBase           CommissionBase @default(SAFETY_NET) @map("commission_base")
+  active                   Boolean        @default(true)
+  createdAt                DateTime       @default(now()) @map("created_at")
+  updatedAt                DateTime       @updatedAt @map("updated_at")
 
   @@map("commission_configuration")
 }
