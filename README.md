@@ -47,6 +47,8 @@ npm run dev
 
 API runs at `http://localhost:4000`
 
+**Render deploy:** set Root Directory to `backend`, Build Command to `npm install && npm run build`, Start Command to `npm start`. Migrations run automatically on start.
+
 ### 4. Frontend
 
 ```bash
