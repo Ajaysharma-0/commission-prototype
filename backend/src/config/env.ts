@@ -3,11 +3,12 @@ import dotenv from "dotenv";
 dotenv.config();
 
 function parseCorsOrigins(): string[] {
+  const defaults = ["http://localhost:3000", "https://*.vercel.app"];
   const raw = process.env.CORS_ALLOWED_ORIGINS?.trim();
-  if (!raw) {
-    return ["http://localhost:3000", "https://*.vercel.app"];
-  }
-  return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  if (!raw) return defaults;
+
+  const fromEnv = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  return [...new Set([...defaults, ...fromEnv])];
 }
 
 function isOriginAllowed(origin: string, allowed: string[]): boolean {

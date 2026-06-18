@@ -1,6 +1,4 @@
-import express from "express";
-import cors, { type CorsOptions } from "cors";
-import { env } from "./config/env";
+import express, { type Request, type Response, type NextFunction } from "express";
 import { errorHandler } from "./middleware/errorHandler";
 import { partnerRouter } from "./modules/partners/partner.routes";
 import { hotelRouter } from "./modules/hotels/hotel.routes";
@@ -11,24 +9,31 @@ import {
 } from "./modules/bookings/booking.routes";
 import { adminRouter } from "./modules/admin/admin.routes";
 
-const corsOptions: CorsOptions = {
-  origin(origin, callback) {
-    if (!origin || env.isOriginAllowed(origin)) {
-      callback(null, true);
-      return;
-    }
-    callback(new Error(`CORS blocked for origin: ${origin}`));
-  },
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  optionsSuccessStatus: 204,
-};
+function corsMiddleware(req: Request, res: Response, next: NextFunction) {
+  const origin = req.headers.origin;
+
+  // Prototype: echo the request origin so all Vercel preview/production URLs work.
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+  if (req.method === "OPTIONS") {
+    res.status(204).end();
+    return;
+  }
+
+  next();
+}
 
 export function createApp() {
   const app = express();
 
-  app.use(cors(corsOptions));
-  app.options("*", cors(corsOptions));
+  app.use(corsMiddleware);
   app.use(express.json());
 
   app.get("/api/health", (_req, res) => {
