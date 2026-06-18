@@ -1,0 +1,11 @@
+{
+  "name": "commission-prototype",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "db:up": "docker compose up -d",
+    "db:setup": "cd backend && npm run db:setup"
+  }
+}
