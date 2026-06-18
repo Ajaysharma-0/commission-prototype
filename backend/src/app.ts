@@ -1,5 +1,6 @@
 import express from "express";
-import cors from "cors";
+import cors, { type CorsOptions } from "cors";
+import { env } from "./config/env";
 import { errorHandler } from "./middleware/errorHandler";
 import { partnerRouter } from "./modules/partners/partner.routes";
 import { hotelRouter } from "./modules/hotels/hotel.routes";
@@ -10,10 +11,24 @@ import {
 } from "./modules/bookings/booking.routes";
 import { adminRouter } from "./modules/admin/admin.routes";
 
+const corsOptions: CorsOptions = {
+  origin(origin, callback) {
+    if (!origin || env.isOriginAllowed(origin)) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  optionsSuccessStatus: 204,
+};
+
 export function createApp() {
   const app = express();
 
-  app.use(cors());
+  app.use(cors(corsOptions));
+  app.options("*", cors(corsOptions));
   app.use(express.json());
 
   app.get("/api/health", (_req, res) => {
