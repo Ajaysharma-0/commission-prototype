@@ -47,11 +47,9 @@ export default function DashboardPage() {
   const [configForm, setConfigForm] = useState({
     travacotPercentage: "15",
     transactionFeePercentage: "4",
-    safetyNetPercentage: "50",
-    slot1CommissionPercentage: "20",
-    slot2CommissionPercentage: "15",
-    slot3CommissionPercentage: "10",
-    commissionBase: "SAFETY_NET",
+    slot1CommissionPercentage: "7.5",
+    slot2CommissionPercentage: "5",
+    slot3CommissionPercentage: "2.5",
   });
 
   const [bookingForm, setBookingForm] = useState({
@@ -85,11 +83,9 @@ export default function DashboardPage() {
         setConfigForm({
           travacotPercentage: String(c.travacotPercentage),
           transactionFeePercentage: String(c.transactionFeePercentage),
-          safetyNetPercentage: String(c.safetyNetPercentage),
           slot1CommissionPercentage: String(c.slot1CommissionPercentage),
           slot2CommissionPercentage: String(c.slot2CommissionPercentage),
           slot3CommissionPercentage: String(c.slot3CommissionPercentage),
-          commissionBase: c.commissionBase,
         });
       }
     } catch (e) {
@@ -126,18 +122,19 @@ export default function DashboardPage() {
   async function handleHotelSubmit(e: React.FormEvent) {
     e.preventDefault();
     try {
+      const partnerId = hotelForm.partnerId || null;
       if (editingHotel) {
         await api.updateHotel(editingHotel.id, {
           name: hotelForm.name,
           price: parseFloat(hotelForm.price),
-          partnerId: hotelForm.partnerId,
+          partnerId,
         });
         setEditingHotel(null);
       } else {
         await api.createHotel({
           name: hotelForm.name,
           price: parseFloat(hotelForm.price),
-          partnerId: hotelForm.partnerId,
+          partnerId,
         });
       }
       setHotelForm({ name: "", price: "", partnerId: "" });
@@ -153,11 +150,9 @@ export default function DashboardPage() {
       await api.updateConfig({
         travacotPercentage: parseFloat(configForm.travacotPercentage),
         transactionFeePercentage: parseFloat(configForm.transactionFeePercentage),
-        safetyNetPercentage: parseFloat(configForm.safetyNetPercentage),
         slot1CommissionPercentage: parseFloat(configForm.slot1CommissionPercentage),
         slot2CommissionPercentage: parseFloat(configForm.slot2CommissionPercentage),
         slot3CommissionPercentage: parseFloat(configForm.slot3CommissionPercentage),
-        commissionBase: configForm.commissionBase as Config["commissionBase"],
       });
       await loadAll();
     } catch (e) {
@@ -345,7 +340,7 @@ export default function DashboardPage() {
           {/* Section 2 - Hotel Management */}
           <Card
             title="Hotel Management"
-            description="Manage hotels and map each to a partner"
+            description="Manage hotels — optionally map each to a partner"
           >
             <form onSubmit={handleHotelSubmit} className="space-y-3 mb-4">
               <Input
@@ -371,14 +366,13 @@ export default function DashboardPage() {
                   required
                 />
                 <Select
-                  label="Partner"
+                  label="Partner (optional)"
                   value={hotelForm.partnerId}
                   onChange={(e) =>
                     setHotelForm({ ...hotelForm, partnerId: e.target.value })
                   }
-                  required
                 >
-                  <option value="">Select partner</option>
+                  <option value="">No partner</option>
                   {partners.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
@@ -409,7 +403,7 @@ export default function DashboardPage() {
               rows={hotels.map((h) => [
                 h.name,
                 formatCurrency(h.price),
-                h.partner?.name ?? "—",
+                h.partner?.name ?? "No partner",
                 <div key={`h-${h.id}`} className="flex gap-2">
                   <Button
                     variant="ghost"
@@ -419,7 +413,7 @@ export default function DashboardPage() {
                       setHotelForm({
                         name: h.name,
                         price: String(h.price),
-                        partnerId: h.partnerId,
+                        partnerId: h.partnerId ?? "",
                       });
                     }}
                   >
@@ -450,14 +444,14 @@ export default function DashboardPage() {
         {/* Section 3 - Configuration */}
         <Card
           title="Configuration"
-          description="Revenue and slot commission percentages — no code changes required"
+          description="NIR pool and socket earning rates — NIR Pool = (Travacot Net − Transaction Fee) ÷ 2"
         >
           <form
             onSubmit={handleConfigSave}
-            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
           >
             <Input
-              label="Travacot Revenue %"
+              label="Travacot Net Revenue %"
               type="number"
               step="0.01"
               value={configForm.travacotPercentage}
@@ -469,7 +463,7 @@ export default function DashboardPage() {
               }
             />
             <Input
-              label="Transaction Fee %"
+              label="Transaction Fee % (of booking)"
               type="number"
               step="0.01"
               value={configForm.transactionFeePercentage}
@@ -480,34 +474,11 @@ export default function DashboardPage() {
                 })
               }
             />
+            <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground flex items-center">
+              NIR Pool divisor is fixed at ÷ 2 per spec
+            </div>
             <Input
-              label="Safety Net %"
-              type="number"
-              step="0.01"
-              value={configForm.safetyNetPercentage}
-              onChange={(e) =>
-                setConfigForm({
-                  ...configForm,
-                  safetyNetPercentage: e.target.value,
-                })
-              }
-            />
-            <Select
-              label="Commission Base"
-              value={configForm.commissionBase}
-              onChange={(e) =>
-                setConfigForm({
-                  ...configForm,
-                  commissionBase: e.target.value,
-                })
-              }
-            >
-              <option value="SAFETY_NET">Safety Net</option>
-              <option value="OWNER_NET_REVENUE">Owner Net Revenue</option>
-              <option value="TRAVACOT_REVENUE">Travacot Revenue</option>
-            </Select>
-            <Input
-              label="Slot 1 Commission %"
+              label="Socket A rate % (of NIR pool)"
               type="number"
               step="0.01"
               min="0"
@@ -521,7 +492,7 @@ export default function DashboardPage() {
               }
             />
             <Input
-              label="Slot 2 Commission %"
+              label="Socket B rate % (of NIR pool)"
               type="number"
               step="0.01"
               min="0"
@@ -535,7 +506,7 @@ export default function DashboardPage() {
               }
             />
             <Input
-              label="Slot 3 Commission %"
+              label="Socket C rate % (of NIR pool)"
               type="number"
               step="0.01"
               min="0"
@@ -548,7 +519,7 @@ export default function DashboardPage() {
                 })
               }
             />
-            <div className="sm:col-span-2 lg:col-span-4">
+            <div className="sm:col-span-2 lg:col-span-3">
               <Button type="submit">Save Configuration</Button>
             </div>
           </form>
@@ -595,7 +566,7 @@ export default function DashboardPage() {
                   </p>
                   <p>
                     <span className="text-muted-foreground">Partner: </span>
-                    {selectedHotel.partner?.name ?? "—"}
+                    {selectedHotel.partner?.name ?? "No partner"}
                   </p>
                 </div>
               )}
@@ -613,9 +584,11 @@ export default function DashboardPage() {
               </Button>
               {lastBooking?.slotAssignment && (
                 <p className="text-xs text-muted-foreground">
-                  {lastBooking.slotAssignment.assigned
-                    ? `New slot assigned: Slot ${lastBooking.slotAssignment.slotNumber} → ${lastBooking.slotAssignment.partnerName}`
-                    : `No new slot for ${lastBooking.slotAssignment.partnerName} (slots full or already assigned)`}
+                  {lastBooking.slotAssignment.partnerName
+                    ? lastBooking.slotAssignment.assigned
+                      ? `New slot assigned: Slot ${lastBooking.slotAssignment.slotNumber} → ${lastBooking.slotAssignment.partnerName}`
+                      : `No new slot for ${lastBooking.slotAssignment.partnerName} (slots full or already assigned)`
+                    : "No affiliated partner — slot assignment skipped"}
                 </p>
               )}
             </div>
@@ -634,7 +607,7 @@ export default function DashboardPage() {
                   value={formatCurrency(lastBooking.revenue.bookingAmount)}
                 />
                 <StatCard
-                  label="Travacot Revenue"
+                  label="Travacot Net"
                   value={formatCurrency(lastBooking.revenue.travacotRevenue)}
                 />
                 <StatCard
@@ -646,8 +619,10 @@ export default function DashboardPage() {
                   value={formatCurrency(lastBooking.revenue.ownerNetRevenue)}
                 />
                 <StatCard
-                  label="Safety Net"
-                  value={formatCurrency(lastBooking.revenue.safetyNet)}
+                  label="NIR Pool"
+                  value={formatCurrency(
+                    lastBooking.revenue.nirPool ?? lastBooking.revenue.safetyNet
+                  )}
                   highlight
                 />
               </div>
@@ -662,8 +637,8 @@ export default function DashboardPage() {
         <div className="grid gap-8 lg:grid-cols-2">
           {/* Section 6 - Customer Slots */}
           <Card
-            title="Customer Slots"
-            description="Partners assigned per customer — rate comes from slot config"
+            title="Customer Sockets"
+            description="Socket holders per customer — earnings are % of NIR pool"
           >
             {bookingForm.customerName ? (
               <div className="mb-3">
@@ -673,17 +648,23 @@ export default function DashboardPage() {
               </div>
             ) : null}
             <Table
-              headers={["Slot", "Partner", "Slot Rate", "Commission"]}
+              headers={["Socket", "Partner", "Socket Rate", "Earning"]}
               rows={
                 displaySlots.length > 0
                   ? displaySlots.map((s) => [
-                      `Slot ${s.slotNumber}`,
+                      s.slotNumber === 1
+                        ? "Socket A"
+                        : s.slotNumber === 2
+                          ? "Socket B"
+                          : "Socket C",
                       s.partnerName,
                       `${s.commissionRate}%`,
-                      formatCurrency(s.commissionAmount),
+                      s.skipped
+                        ? `${formatCurrency(s.commissionAmount)} (skipped)`
+                        : formatCurrency(s.commissionAmount),
                     ])
                   : [1, 2, 3].map((n) => [
-                      `Slot ${n}`,
+                      n === 1 ? "Socket A" : n === 2 ? "Socket B" : "Socket C",
                       "—",
                       config
                         ? `${[config.slot1CommissionPercentage, config.slot2CommissionPercentage, config.slot3CommissionPercentage][n - 1]}%`
@@ -696,18 +677,24 @@ export default function DashboardPage() {
 
           {/* Section 7 - Slot Commission Breakdown */}
           <Card
-            title="Slot Commission Breakdown"
-            description="Commission per slot on the latest booking"
+            title="Socket Earnings Breakdown"
+            description="NIR earnings per socket on the latest booking"
           >
             <Table
-              headers={["Partner", "Slot", "Slot Rate", "Commission Amount"]}
+              headers={["Partner", "Socket", "Rate", "Earning"]}
               rows={
                 displayCommissions.length > 0
                   ? displayCommissions.map((c) => [
                       c.partnerName,
-                      `Slot ${c.slotNumber}`,
+                      c.slotNumber === 1
+                        ? "Socket A"
+                        : c.slotNumber === 2
+                          ? "Socket B"
+                          : "Socket C",
                       `${c.commissionRate}%`,
-                      formatCurrency(c.commissionAmount),
+                      c.skipped
+                        ? `${formatCurrency(c.commissionAmount)} (skipped)`
+                        : formatCurrency(c.commissionAmount),
                     ])
                   : []
               }
@@ -753,10 +740,10 @@ export default function DashboardPage() {
               "Travacot",
               "Txn Fee",
               "Owner Net",
-              "Safety Net",
-              "Slot 1",
-              "Slot 2",
-              "Slot 3",
+              "NIR Pool",
+              "Socket A",
+              "Socket B",
+              "Socket C",
               "Date",
               "Actions",
             ]}

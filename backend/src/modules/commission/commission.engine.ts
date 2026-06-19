@@ -1,15 +1,14 @@
 import {
-  CommissionBase,
   WalletTransactionType,
 } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../middleware/errorHandler";
 import {
-  calculatePartnerCommission,
   calculateRevenue,
-  getCommissionBaseAmount,
-  getSlotCommissionRate,
+  calculateSocketEarning,
+  getNirPoolAmount,
+  getSocketRate,
 } from "./commission.calculator";
 
 export type ProductType = "HOTEL" | "FLIGHT" | "PACKAGE" | "ACTIVITY" | "VISA" | "INSURANCE";
@@ -17,7 +16,6 @@ export type ProductType = "HOTEL" | "FLIGHT" | "PACKAGE" | "ACTIVITY" | "VISA" |
 export interface ProcessBookingInput {
   bookingId?: string;
   customerId: string;
-  partnerId: string;
   hotelId: string;
   bookingAmount: number;
   productType?: ProductType;
@@ -30,13 +28,15 @@ export interface ProcessBookingResult {
     travacotRevenue: number;
     transactionFee: number;
     ownerNetRevenue: number;
+    nirPool: number;
+    /** @deprecated Use nirPool */
     safetyNet: number;
   };
   slotAssignment: {
     assigned: boolean;
     slotNumber?: number;
-    partnerId: string;
-    partnerName: string;
+    partnerId: string | null;
+    partnerName: string | null;
   };
   customerSlots: Array<{
     slotNumber: number;
@@ -44,6 +44,7 @@ export interface ProcessBookingResult {
     partnerName: string;
     commissionRate: number;
     commissionAmount: number;
+    skipped?: boolean;
   }>;
   partnerCommissions: Array<{
     partnerId: string;
@@ -51,6 +52,7 @@ export interface ProcessBookingResult {
     slotNumber: number;
     commissionRate: number;
     commissionAmount: number;
+    skipped?: boolean;
   }>;
 }
 
@@ -94,7 +96,8 @@ export class CommissionEngine {
 
     const bookingAmount = new Decimal(input.bookingAmount);
     const revenue = calculateRevenue(bookingAmount, config);
-    const commissionBase = getCommissionBaseAmount(revenue, config.commissionBase);
+    const nirPool = getNirPoolAmount(revenue);
+    const hotelPartnerId = hotel.partnerId;
 
     const result = await prisma.$transaction(async (tx) => {
       const booking = await tx.booking.create({
@@ -112,7 +115,7 @@ export class CommissionEngine {
           travacotRevenue: revenue.travacotRevenue,
           transactionFee: revenue.transactionFee,
           ownerNetRevenue: revenue.ownerNetRevenue,
-          safetyNet: revenue.safetyNet,
+          safetyNet: revenue.nirPool,
         },
       });
 
@@ -122,32 +125,33 @@ export class CommissionEngine {
         orderBy: { slotNumber: "asc" },
       });
 
-      const hotelPartnerId = hotel.partnerId;
-      const alreadySlotted = existingSlots.some(
-        (s) => s.partnerId === hotelPartnerId
-      );
-
       let slotAssignment: ProcessBookingResult["slotAssignment"] = {
         assigned: false,
-        partnerId: hotel.partnerId,
-        partnerName: hotel.partner.name,
+        partnerId: hotelPartnerId,
+        partnerName: hotel.partner?.name ?? null,
       };
 
-      if (!alreadySlotted && existingSlots.length < 3) {
-        const nextSlot = existingSlots.length + 1;
-        await tx.customerPartnerSlot.create({
-          data: {
-            customerId: input.customerId,
+      if (hotelPartnerId) {
+        const alreadySlotted = existingSlots.some(
+          (s) => s.partnerId === hotelPartnerId
+        );
+
+        if (!alreadySlotted && existingSlots.length < 3) {
+          const nextSlot = existingSlots.length + 1;
+          await tx.customerPartnerSlot.create({
+            data: {
+              customerId: input.customerId,
+              slotNumber: nextSlot,
+              partnerId: hotelPartnerId,
+            },
+          });
+          slotAssignment = {
+            assigned: true,
             slotNumber: nextSlot,
             partnerId: hotelPartnerId,
-          },
-        });
-        slotAssignment = {
-          assigned: true,
-          slotNumber: nextSlot,
-          partnerId: hotel.partnerId,
-          partnerName: hotel.partner.name,
-        };
+            partnerName: hotel.partner!.name,
+          };
+        }
       }
 
       const allSlots = await tx.customerPartnerSlot.findMany({
@@ -156,11 +160,31 @@ export class CommissionEngine {
         orderBy: { slotNumber: "asc" },
       });
 
+      let affiliatedPartnerAlreadyRewarded = false;
+      if (hotelPartnerId) {
+        const rewardHistory = await tx.partnerCommissionHistory.findUnique({
+          where: {
+            customerId_partnerId: {
+              customerId: input.customerId,
+              partnerId: hotelPartnerId,
+            },
+          },
+        });
+        affiliatedPartnerAlreadyRewarded = Boolean(rewardHistory);
+      }
+
       const partnerCommissions: ProcessBookingResult["partnerCommissions"] = [];
 
       for (const slot of allSlots) {
-        const slotRate = getSlotCommissionRate(config, slot.slotNumber);
-        const amount = calculatePartnerCommission(commissionBase, slotRate);
+        const isAffiliatedPartner =
+          hotelPartnerId !== null && slot.partnerId === hotelPartnerId;
+        const skipCommission =
+          isAffiliatedPartner && affiliatedPartnerAlreadyRewarded;
+
+        const slotRate = getSocketRate(config, slot.slotNumber);
+        const amount = skipCommission
+          ? new Decimal(0)
+          : calculateSocketEarning(nirPool, slotRate);
 
         await tx.bookingPartnerCommission.create({
           data: {
@@ -173,33 +197,46 @@ export class CommissionEngine {
           },
         });
 
-        let wallet = await tx.partnerWallet.findUnique({
-          where: { partnerId: slot.partnerId },
-        });
+        if (!skipCommission && amount.greaterThan(0)) {
+          let wallet = await tx.partnerWallet.findUnique({
+            where: { partnerId: slot.partnerId },
+          });
 
-        if (!wallet) {
-          wallet = await tx.partnerWallet.create({
-            data: { partnerId: slot.partnerId },
+          if (!wallet) {
+            wallet = await tx.partnerWallet.create({
+              data: { partnerId: slot.partnerId },
+            });
+          }
+
+          await tx.partnerWallet.update({
+            where: { partnerId: slot.partnerId },
+            data: {
+              totalCredit: wallet.totalCredit.plus(amount),
+              availableBalance: wallet.availableBalance.plus(amount),
+            },
+          });
+
+          await tx.partnerWalletTransaction.create({
+            data: {
+              partnerId: slot.partnerId,
+              bookingId: booking.id,
+              transactionType: WalletTransactionType.CREDIT,
+              amount,
+              remarks: `Commission for booking ${booking.id} (Slot ${slot.slotNumber})`,
+            },
           });
         }
 
-        await tx.partnerWallet.update({
-          where: { partnerId: slot.partnerId },
-          data: {
-            totalCredit: wallet.totalCredit.plus(amount),
-            availableBalance: wallet.availableBalance.plus(amount),
-          },
-        });
-
-        await tx.partnerWalletTransaction.create({
-          data: {
-            partnerId: slot.partnerId,
-            bookingId: booking.id,
-            transactionType: WalletTransactionType.CREDIT,
-            amount,
-            remarks: `Commission for booking ${booking.id} (Slot ${slot.slotNumber})`,
-          },
-        });
+        if (isAffiliatedPartner && !skipCommission) {
+          await tx.partnerCommissionHistory.create({
+            data: {
+              customerId: input.customerId,
+              partnerId: hotelPartnerId,
+              firstBookingId: booking.id,
+            },
+          });
+          affiliatedPartnerAlreadyRewarded = true;
+        }
 
         partnerCommissions.push({
           partnerId: slot.partnerId,
@@ -207,6 +244,7 @@ export class CommissionEngine {
           slotNumber: slot.slotNumber,
           commissionRate: toNumber(slotRate),
           commissionAmount: toNumber(amount),
+          skipped: skipCommission,
         });
       }
 
@@ -222,16 +260,18 @@ export class CommissionEngine {
       const commission = result.partnerCommissions.find(
         (c) => c.slotNumber === slot.slotNumber
       );
-      const slotRate = getSlotCommissionRate(config, slot.slotNumber);
+      const slotRate = getSocketRate(config, slot.slotNumber);
       return {
         slotNumber: slot.slotNumber,
         partnerId: slot.partnerId,
         partnerName: slot.partner.name,
         commissionRate: toNumber(slotRate),
         commissionAmount: commission?.commissionAmount ?? 0,
+        skipped: commission?.skipped,
       };
     });
 
+    const nirPoolAmount = toNumber(revenue.nirPool);
     return {
       bookingId: result.bookingId,
       revenue: {
@@ -239,7 +279,8 @@ export class CommissionEngine {
         travacotRevenue: toNumber(revenue.travacotRevenue),
         transactionFee: toNumber(revenue.transactionFee),
         ownerNetRevenue: toNumber(revenue.ownerNetRevenue),
-        safetyNet: toNumber(revenue.safetyNet),
+        nirPool: nirPoolAmount,
+        safetyNet: nirPoolAmount,
       },
       slotAssignment: result.slotAssignment,
       customerSlots,
@@ -267,7 +308,7 @@ export class CommissionEngine {
       slotNumber: s.slotNumber,
       partnerId: s.partnerId,
       partnerName: s.partner.name,
-      commissionRate: toNumber(getSlotCommissionRate(config, s.slotNumber)),
+      commissionRate: toNumber(getSocketRate(config, s.slotNumber)),
       assignedAt: s.assignedAt,
     }));
   }

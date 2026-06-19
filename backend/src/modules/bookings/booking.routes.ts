@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../../lib/prisma";
 import { CommissionEngine } from "../commission/commission.engine";
-import { getSlotCommissionRate } from "../commission/commission.calculator";
+import { getSocketRate } from "../commission/commission.calculator";
 import { createBookingSchema } from "../shared/dto";
 import { updateConfigSchema } from "../shared/dto";
 import { AppError } from "../../middleware/errorHandler";
@@ -48,7 +48,7 @@ bookingRouter.get("/history", async (_req, res, next) => {
           customer: b.customer.name,
           customerId: b.customerId,
           hotel: b.hotel.name,
-          partner: b.hotel.partner.name,
+          partner: b.hotel.partner?.name ?? "—",
           bookingAmount: toNum(b.bookingAmount),
           travacotRevenue: b.revenue ? toNum(b.revenue.travacotRevenue) : 0,
           transactionFee: b.revenue ? toNum(b.revenue.transactionFee) : 0,
@@ -90,7 +90,6 @@ bookingRouter.post("/", async (req, res, next) => {
 
     const result = await CommissionEngine.processBooking({
       customerId: customer.id,
-      partnerId: hotel.partnerId,
       hotelId: data.hotelId,
       bookingAmount: toNum(hotel.price),
       productType: "HOTEL",
@@ -123,7 +122,10 @@ bookingRouter.delete("/:id", async (req, res, next) => {
     );
 
     await prisma.$transaction(async (tx) => {
-      // Delete dependent rows first
+      // Child tables first
+      await tx.partnerCommissionHistory.deleteMany({
+        where: { firstBookingId: bookingId },
+      });
       await tx.partnerWalletTransaction.deleteMany({ where: { bookingId } });
       await tx.bookingPartnerCommission.deleteMany({ where: { bookingId } });
       await tx.bookingRevenue.deleteMany({ where: { bookingId } });
@@ -281,9 +283,9 @@ configRouter.put("/", async (req, res, next) => {
           travacotPercentage: data.travacotPercentage ?? 15,
           transactionFeePercentage: data.transactionFeePercentage ?? 4,
           safetyNetPercentage: data.safetyNetPercentage ?? 50,
-          slot1CommissionPercentage: data.slot1CommissionPercentage ?? 20,
-          slot2CommissionPercentage: data.slot2CommissionPercentage ?? 15,
-          slot3CommissionPercentage: data.slot3CommissionPercentage ?? 10,
+          slot1CommissionPercentage: data.slot1CommissionPercentage ?? 7.5,
+          slot2CommissionPercentage: data.slot2CommissionPercentage ?? 5,
+          slot3CommissionPercentage: data.slot3CommissionPercentage ?? 2.5,
           commissionBase: data.commissionBase ?? "SAFETY_NET",
         },
       });
@@ -320,7 +322,7 @@ configRouter.get("/customers", async (_req, res, next) => {
           partnerId: s.partnerId,
           partnerName: s.partner.name,
           commissionRate: config
-            ? toNum(getSlotCommissionRate(config, s.slotNumber))
+            ? toNum(getSocketRate(config, s.slotNumber))
             : 0,
         })),
       }))

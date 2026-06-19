@@ -10,7 +10,7 @@ export const updatePartnerSchema = createPartnerSchema.partial();
 export const createHotelSchema = z.object({
   name: z.string().min(1, "Name is required"),
   price: z.number().positive("Price must be positive"),
-  partnerId: z.string().uuid("Invalid partner ID"),
+  partnerId: z.string().uuid("Invalid partner ID").nullish(),
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
 });
 

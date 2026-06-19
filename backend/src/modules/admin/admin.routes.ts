@@ -14,6 +14,7 @@ adminRouter.post("/reset", async (req, res, next) => {
     await prisma.$transaction(async (tx) => {
       // Child tables first
       await tx.partnerWalletTransaction.deleteMany();
+      await tx.partnerCommissionHistory.deleteMany();
       await tx.bookingPartnerCommission.deleteMany();
       await tx.bookingRevenue.deleteMany();
       await tx.customerPartnerSlot.deleteMany();
@@ -34,9 +35,9 @@ adminRouter.post("/reset", async (req, res, next) => {
           travacotPercentage: 15,
           transactionFeePercentage: 4,
           safetyNetPercentage: 50,
-          slot1CommissionPercentage: 20,
-          slot2CommissionPercentage: 15,
-          slot3CommissionPercentage: 10,
+          slot1CommissionPercentage: 7.5,
+          slot2CommissionPercentage: 5,
+          slot3CommissionPercentage: 2.5,
           commissionBase: "SAFETY_NET",
           active: true,
         },
@@ -65,6 +66,7 @@ adminRouter.post("/reset", async (req, res, next) => {
           { name: "Sunset Resort", price: 120, partnerId: partnerB.id },
           { name: "Mountain View Lodge", price: 95, partnerId: partnerC.id },
           { name: "City Center Inn", price: 60, partnerId: partnerD.id },
+          { name: "Independent Stay", price: 85, partnerId: null },
         ],
       });
     });

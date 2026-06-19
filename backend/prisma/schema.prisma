@@ -43,6 +43,7 @@ model Partner {
   hotels                  Hotel[]
   customerSlots           CustomerPartnerSlot[]
   bookingCommissions      BookingPartnerCommission[]
+  commissionHistory       PartnerCommissionHistory[]
   wallet                  PartnerWallet?
   walletTransactions      PartnerWalletTransaction[]
 
@@ -53,12 +54,12 @@ model Hotel {
   id        String      @id @default(uuid())
   name      String
   price     Decimal     @db.Decimal(10, 2)
-  partnerId String      @map("partner_id")
+  partnerId String?     @map("partner_id")
   status    HotelStatus @default(ACTIVE)
   createdAt DateTime    @default(now()) @map("created_at")
   updatedAt DateTime    @updatedAt @map("updated_at")
 
-  partner  Partner   @relation(fields: [partnerId], references: [id])
+  partner  Partner?  @relation(fields: [partnerId], references: [id])
   bookings Booking[]
 
   @@map("hotels")
@@ -73,6 +74,7 @@ model Customer {
   bookings           Booking[]
   partnerSlots       CustomerPartnerSlot[]
   partnerCommissions BookingPartnerCommission[]
+  commissionHistory  PartnerCommissionHistory[]
 
   @@map("customers")
 }
@@ -90,6 +92,7 @@ model Booking {
   revenue            BookingRevenue?
   partnerCommissions BookingPartnerCommission[]
   walletTransactions PartnerWalletTransaction[]
+  commissionHistory  PartnerCommissionHistory[]
 
   @@map("bookings")
 }
@@ -99,9 +102,9 @@ model CommissionConfiguration {
   travacotPercentage       Decimal        @map("travacot_percentage") @db.Decimal(5, 2)
   transactionFeePercentage Decimal        @map("transaction_fee_percentage") @db.Decimal(5, 2)
   safetyNetPercentage      Decimal        @map("safety_net_percentage") @db.Decimal(5, 2)
-  slot1CommissionPercentage Decimal       @default(20) @map("slot1_commission_percentage") @db.Decimal(5, 2)
-  slot2CommissionPercentage Decimal       @default(15) @map("slot2_commission_percentage") @db.Decimal(5, 2)
-  slot3CommissionPercentage Decimal       @default(10) @map("slot3_commission_percentage") @db.Decimal(5, 2)
+  slot1CommissionPercentage Decimal       @default(7.5) @map("slot1_commission_percentage") @db.Decimal(5, 2)
+  slot2CommissionPercentage Decimal       @default(5) @map("slot2_commission_percentage") @db.Decimal(5, 2)
+  slot3CommissionPercentage Decimal       @default(2.5) @map("slot3_commission_percentage") @db.Decimal(5, 2)
   commissionBase           CommissionBase @default(SAFETY_NET) @map("commission_base")
   active                   Boolean        @default(true)
   createdAt                DateTime       @default(now()) @map("created_at")
@@ -166,6 +169,21 @@ model PartnerWallet {
   partner Partner @relation(fields: [partnerId], references: [id])
 
   @@map("partner_wallet")
+}
+
+model PartnerCommissionHistory {
+  id             String   @id @default(uuid())
+  customerId     String   @map("customer_id")
+  partnerId      String   @map("partner_id")
+  firstBookingId String   @map("first_booking_id")
+  rewardedAt     DateTime @default(now()) @map("rewarded_at")
+
+  customer     Customer @relation(fields: [customerId], references: [id])
+  partner      Partner  @relation(fields: [partnerId], references: [id])
+  firstBooking Booking  @relation(fields: [firstBookingId], references: [id])
+
+  @@unique([customerId, partnerId])
+  @@map("partner_commission_history")
 }
 
 model PartnerWalletTransaction {

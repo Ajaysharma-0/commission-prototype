@@ -28,9 +28,9 @@ export interface Hotel {
   id: string;
   name: string;
   price: number;
-  partnerId: string;
+  partnerId: string | null;
   status: string;
-  partner?: { id: string; name: string };
+  partner?: { id: string; name: string } | null;
 }
 
 export interface Config {
@@ -52,13 +52,14 @@ export interface BookingResult {
     travacotRevenue: number;
     transactionFee: number;
     ownerNetRevenue: number;
+    nirPool: number;
     safetyNet: number;
   };
   slotAssignment: {
     assigned: boolean;
     slotNumber?: number;
-    partnerId: string;
-    partnerName: string;
+    partnerId: string | null;
+    partnerName: string | null;
   };
   customerSlots: Array<{
     slotNumber: number;
@@ -66,6 +67,7 @@ export interface BookingResult {
     partnerName: string;
     commissionRate: number;
     commissionAmount: number;
+    skipped?: boolean;
   }>;
   partnerCommissions: Array<{
     partnerId: string;
@@ -73,6 +75,7 @@ export interface BookingResult {
     slotNumber: number;
     commissionRate: number;
     commissionAmount: number;
+    skipped?: boolean;
   }>;
 }
 
@@ -114,7 +117,11 @@ export const api = {
     request<void>(`/partners/${id}`, { method: "DELETE" }),
 
   getHotels: () => request<Hotel[]>("/hotels"),
-  createHotel: (data: { name: string; price: number; partnerId: string }) =>
+  createHotel: (data: {
+    name: string;
+    price: number;
+    partnerId?: string | null;
+  }) =>
     request<Hotel>("/hotels", { method: "POST", body: JSON.stringify(data) }),
   updateHotel: (id: string, data: Partial<Hotel>) =>
     request<Hotel>(`/hotels/${id}`, { method: "PUT", body: JSON.stringify(data) }),

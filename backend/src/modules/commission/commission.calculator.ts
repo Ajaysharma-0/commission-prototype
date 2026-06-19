@@ -1,27 +1,37 @@
 import { Decimal } from "@prisma/client/runtime/library";
-import { CommissionBase } from "@prisma/client";
 
 export interface RevenueBreakdown {
   bookingAmount: Decimal;
+  /** Travacot net revenue on the booking */
   travacotRevenue: Decimal;
+  /** Transaction fee amount subtracted from travacot net */
   transactionFee: Decimal;
+  /** Travacot net revenue after transaction fee */
   ownerNetRevenue: Decimal;
-  safetyNet: Decimal;
+  /** NIR pool: (travacot net − transaction fee) ÷ 2 */
+  nirPool: Decimal;
 }
 
 export interface CommissionConfig {
   travacotPercentage: Decimal;
   transactionFeePercentage: Decimal;
-  safetyNetPercentage: Decimal;
   slot1CommissionPercentage: Decimal;
   slot2CommissionPercentage: Decimal;
   slot3CommissionPercentage: Decimal;
-  commissionBase: CommissionBase;
 }
 
+/**
+ * NIR revenue chain (new-doc §2):
+ *   Travacot Net = booking × travacot %
+ *   Transaction Fee = booking × transaction fee % (subtracted from travacot net)
+ *   NIR Pool = (Travacot Net − Transaction Fee) ÷ 2
+ */
 export function calculateRevenue(
   bookingAmount: Decimal,
-  config: CommissionConfig
+  config: Pick<
+    CommissionConfig,
+    "travacotPercentage" | "transactionFeePercentage"
+  >
 ): RevenueBreakdown {
   const amount = bookingAmount.toNumber();
 
@@ -32,40 +42,30 @@ export function calculateRevenue(
     (amount * config.transactionFeePercentage.toNumber()) / 100
   );
   const ownerNetRevenue = travacotRevenue.minus(transactionFee);
-  const safetyNet = ownerNetRevenue.mul(config.safetyNetPercentage).div(100);
+  const nirPool = ownerNetRevenue.div(2);
 
   return {
     bookingAmount,
     travacotRevenue,
     transactionFee,
     ownerNetRevenue,
-    safetyNet,
+    nirPool,
   };
 }
 
-export function getCommissionBaseAmount(
-  revenue: RevenueBreakdown,
-  commissionBase: CommissionBase
-): Decimal {
-  switch (commissionBase) {
-    case CommissionBase.TRAVACOT_REVENUE:
-      return revenue.travacotRevenue;
-    case CommissionBase.OWNER_NET_REVENUE:
-      return revenue.ownerNetRevenue;
-    case CommissionBase.SAFETY_NET:
-    default:
-      return revenue.safetyNet;
-  }
+/** Socket earnings are always a percentage of the NIR pool. */
+export function getNirPoolAmount(revenue: RevenueBreakdown): Decimal {
+  return revenue.nirPool;
 }
 
-export function calculatePartnerCommission(
-  baseAmount: Decimal,
-  commissionRate: Decimal
+export function calculateSocketEarning(
+  nirPool: Decimal,
+  socketRate: Decimal
 ): Decimal {
-  return baseAmount.mul(commissionRate).div(100);
+  return nirPool.mul(socketRate).div(100);
 }
 
-export function getSlotCommissionRate(
+export function getSocketRate(
   config: Pick<
     CommissionConfig,
     | "slot1CommissionPercentage"
@@ -84,4 +84,15 @@ export function getSlotCommissionRate(
     default:
       throw new Error(`Invalid slot number: ${slotNumber}`);
   }
+}
+
+/** @deprecated Use getSocketRate */
+export const getSlotCommissionRate = getSocketRate;
+
+/** @deprecated Use calculateSocketEarning */
+export const calculatePartnerCommission = calculateSocketEarning;
+
+/** @deprecated Use getNirPoolAmount */
+export function getCommissionBaseAmount(revenue: RevenueBreakdown): Decimal {
+  return getNirPoolAmount(revenue);
 }

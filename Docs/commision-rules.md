@@ -635,3 +635,110 @@ The commission engine should remain unchanged.
 * Reusable architecture suitable for integration into existing or future applications.
 
 The final solution should be production-ready in architecture, modular in design, and capable of being plugged into other systems with minimal changes.
+
+
+# 18. Repeat Hotel Booking Commission Rule
+
+## Objective
+
+Prevent an affiliated partner from receiving commission multiple times when the same customer repeatedly books the same partner's hotel.
+
+## Business Rule
+
+When a customer books a hotel, the Commission Engine must first check whether the customer has already generated a commission for the affiliated partner of that hotel.
+
+If a commission has already been paid to that affiliated partner for the same customer, then:
+
+* The affiliated partner will **not receive commission** for the current booking.
+* The partner's customer slot remains unchanged.
+* All other eligible partners occupying customer slots will continue to receive their slot-wise commissions according to the configured rates.
+
+## Example
+
+### First Booking
+
+Customer: **Ajay**
+
+Hotel: **Hotel Delhi**
+
+Affiliated Partner: **Partner A**
+
+Customer has never booked this partner's hotel before.
+
+| Partner   | Slot   | Commission |
+| --------- | ------ | ---------- |
+| Partner A | Slot 1 | ✅ Paid     |
+| Partner B | Slot 2 | ✅ Paid     |
+| Partner C | Slot 3 | ✅ Paid     |
+
+A record is stored indicating that Customer Ajay has already rewarded Partner A.
+
+---
+
+### Second Booking (Same Hotel)
+
+Customer: **Ajay**
+
+Hotel: **Hotel Delhi**
+
+Affiliated Partner: **Partner A**
+
+Since Partner A has already received commission from this customer for this affiliated hotel relationship:
+
+| Partner   | Slot   | Commission |
+| --------- | ------ | ---------- |
+| Partner A | Slot 1 | ❌ Not Paid |
+| Partner B | Slot 2 | ✅ Paid     |
+| Partner C | Slot 3 | ✅ Paid     |
+
+Only Partner A is skipped. Other eligible slot partners continue to receive commission.
+
+---
+
+### Third Booking (Another Hotel of the Same Partner)
+
+If Hotel Mumbai is also mapped to Partner A and Ajay books it later, the engine should apply the same rule if commissions are tracked at the **Customer + Partner** level.
+
+In this case:
+
+Customer = Ajay
+
+Partner = Partner A
+
+Already rewarded = Yes
+
+Partner A receives **no additional commission**, while other slot partners remain eligible.
+
+## Engine Logic
+
+```
+For each booking:
+
+1. Identify the hotel's affiliated partner.
+
+2. Check if a commission record exists for:
+   customer_id + affiliated_partner_id
+
+3. If found:
+      Skip commission for the affiliated partner.
+   Else:
+      Calculate commission and store the reward history.
+
+4. Continue calculating commissions for all other eligible slot partners.
+
+5. Update wallet balances only for partners who received commission.
+```
+
+## Suggested Table
+
+### partner_commission_history
+
+| Column           | Description                                 |
+| ---------------- | ------------------------------------------- |
+| id               | Primary Key                                 |
+| customer_id      | Customer                                    |
+| partner_id       | Affiliated Partner                          |
+| first_booking_id | Booking that generated the first commission |
+| rewarded_at      | Date of first reward                        |
+
+This table enables a quick check to ensure that an affiliated partner receives commission only once per customer while allowing other slot partners to continue earning commissions on future bookings.

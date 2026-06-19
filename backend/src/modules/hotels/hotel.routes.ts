@@ -9,9 +9,9 @@ function serializeHotel(h: {
   id: string;
   name: string;
   price: { toString: () => string } | number;
-  partnerId: string;
+  partnerId: string | null;
   status: string;
-  partner?: { id: string; name: string };
+  partner?: { id: string; name: string } | null;
   createdAt?: Date;
   updatedAt?: Date;
 }) {
@@ -26,7 +26,7 @@ function serializeHotel(h: {
           id: h.partner.id,
           name: h.partner.name,
         }
-      : undefined,
+      : null,
     createdAt: h.createdAt,
     updatedAt: h.updatedAt,
   };
@@ -51,7 +51,7 @@ hotelRouter.post("/", async (req, res, next) => {
       data: {
         name: data.name,
         price: data.price,
-        partnerId: data.partnerId,
+        partnerId: data.partnerId ?? null,
         status: data.status ?? "ACTIVE",
       },
       include: { partner: true },
@@ -65,9 +65,15 @@ hotelRouter.post("/", async (req, res, next) => {
 hotelRouter.put("/:id", async (req, res, next) => {
   try {
     const data = updateHotelSchema.parse(req.body);
+    const updateData = {
+      ...data,
+      ...(data.partnerId !== undefined
+        ? { partnerId: data.partnerId ?? null }
+        : {}),
+    };
     const hotel = await prisma.hotel.update({
       where: { id: req.params.id },
-      data,
+      data: updateData,
       include: { partner: true },
     });
     res.json(serializeHotel(hotel));
