@@ -1,3 +1,9 @@
+import type {
+  ButtonHTMLAttributes,
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+} from "react";
 import { cn } from "@/lib/utils";
 
 export function Card({
@@ -7,7 +13,7 @@ export function Card({
   description,
 }: {
   className?: string;
-  children: React.ReactNode;
+  children: ReactNode;
   title?: string;
   description?: string;
 }) {
@@ -35,7 +41,7 @@ export function Button({
   className,
   variant = "primary",
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "destructive" | "ghost";
 }) {
   const variants = {
@@ -60,7 +66,7 @@ export function Input({
   className,
   label,
   ...props
-}: React.InputHTMLAttributes<HTMLInputElement> & { label?: string }) {
+}: InputHTMLAttributes<HTMLInputElement> & { label?: string }) {
   return (
     <label className="block space-y-1.5">
       {label && (
@@ -84,7 +90,7 @@ export function Select({
   label,
   children,
   ...props
-}: React.SelectHTMLAttributes<HTMLSelectElement> & { label?: string }) {
+}: SelectHTMLAttributes<HTMLSelectElement> & { label?: string }) {
   return (
     <label className="block space-y-1.5">
       {label && (
@@ -109,7 +115,7 @@ export function Badge({
   children,
   variant = "default",
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   variant?: "default" | "success" | "warning";
 }) {
   const variants = {
@@ -134,7 +140,7 @@ export function Table({
   rows,
 }: {
   headers: string[];
-  rows: (string | number | React.ReactNode)[][];
+  rows: (string | number | ReactNode)[][];
 }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-border">

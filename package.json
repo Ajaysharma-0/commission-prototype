@@ -5,6 +5,7 @@
   "scripts": {
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
+    "build": "npm run build --prefix frontend",
     "db:up": "docker compose up -d",
     "db:setup": "cd backend && npm run db:setup"
   }
