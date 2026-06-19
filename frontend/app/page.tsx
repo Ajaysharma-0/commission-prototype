@@ -212,7 +212,7 @@ export default function DashboardPage() {
     (c) => c.name.toLowerCase() === bookingForm.customerName.toLowerCase()
   );
 
-  const displaySlots =
+  const displaySlots: BookingResult["customerSlots"] =
     lastBooking?.customerSlots ??
     activeCustomer?.slots.map((s) => ({
       ...s,
