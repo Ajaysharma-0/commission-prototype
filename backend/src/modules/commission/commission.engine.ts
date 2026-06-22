@@ -168,6 +168,7 @@ export class CommissionEngine {
         ? await isAffiliatedPartnerAlreadyRewarded(
             tx,
             input.customerId,
+            input.hotelId,
             hotelPartnerId,
             booking.id
           )
@@ -232,6 +233,7 @@ export class CommissionEngine {
             tx,
             input.customerId,
             hotelPartnerId,
+            input.hotelId,
             booking.id
           );
         }

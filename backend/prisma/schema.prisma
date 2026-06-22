@@ -59,8 +59,9 @@ model Hotel {
   createdAt DateTime    @default(now()) @map("created_at")
   updatedAt DateTime    @updatedAt @map("updated_at")
 
-  partner  Partner?  @relation(fields: [partnerId], references: [id])
-  bookings Booking[]
+  partner            Partner?                   @relation(fields: [partnerId], references: [id])
+  bookings           Booking[]
+  commissionHistory  PartnerCommissionHistory[]
 
   @@map("hotels")
 }
@@ -175,14 +176,16 @@ model PartnerCommissionHistory {
   id             String   @id @default(uuid())
   customerId     String   @map("customer_id")
   partnerId      String   @map("partner_id")
+  hotelId        String   @map("hotel_id")
   firstBookingId String   @map("first_booking_id")
   rewardedAt     DateTime @default(now()) @map("rewarded_at")
 
   customer     Customer @relation(fields: [customerId], references: [id])
   partner      Partner  @relation(fields: [partnerId], references: [id])
+  hotel        Hotel    @relation(fields: [hotelId], references: [id])
   firstBooking Booking  @relation(fields: [firstBookingId], references: [id])
 
-  @@unique([customerId, partnerId])
+  @@unique([customerId, hotelId])
   @@map("partner_commission_history")
 }
 
