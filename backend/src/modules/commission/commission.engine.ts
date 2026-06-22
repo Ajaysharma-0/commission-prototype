@@ -10,6 +10,10 @@ import {
   getNirPoolAmount,
   getSocketRate,
 } from "./commission.calculator";
+import {
+  isAffiliatedPartnerAlreadyRewarded,
+  recordAffiliatedPartnerReward,
+} from "./commission.repeat-rule";
 
 export type ProductType = "HOTEL" | "FLIGHT" | "PACKAGE" | "ACTIVITY" | "VISA" | "INSURANCE";
 
@@ -160,18 +164,14 @@ export class CommissionEngine {
         orderBy: { slotNumber: "asc" },
       });
 
-      let affiliatedPartnerAlreadyRewarded = false;
-      if (hotelPartnerId) {
-        const rewardHistory = await tx.partnerCommissionHistory.findUnique({
-          where: {
-            customerId_partnerId: {
-              customerId: input.customerId,
-              partnerId: hotelPartnerId,
-            },
-          },
-        });
-        affiliatedPartnerAlreadyRewarded = Boolean(rewardHistory);
-      }
+      const affiliatedPartnerAlreadyRewarded = hotelPartnerId
+        ? await isAffiliatedPartnerAlreadyRewarded(
+            tx,
+            input.customerId,
+            hotelPartnerId,
+            booking.id
+          )
+        : false;
 
       const partnerCommissions: ProcessBookingResult["partnerCommissions"] = [];
 
@@ -227,15 +227,13 @@ export class CommissionEngine {
           });
         }
 
-        if (isAffiliatedPartner && !skipCommission) {
-          await tx.partnerCommissionHistory.create({
-            data: {
-              customerId: input.customerId,
-              partnerId: hotelPartnerId,
-              firstBookingId: booking.id,
-            },
-          });
-          affiliatedPartnerAlreadyRewarded = true;
+        if (isAffiliatedPartner && !skipCommission && hotelPartnerId) {
+          await recordAffiliatedPartnerReward(
+            tx,
+            input.customerId,
+            hotelPartnerId,
+            booking.id
+          );
         }
 
         partnerCommissions.push({

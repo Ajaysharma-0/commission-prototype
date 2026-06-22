@@ -36,6 +36,7 @@ async function main() {
   await prisma.hotel.createMany({
     data: [
       { name: "Grand Palace Hotel", price: 75, partnerId: partnerA.id },
+      { name: "Grand Palace Mumbai", price: 90, partnerId: partnerA.id },
       { name: "Sunset Resort", price: 120, partnerId: partnerB.id },
       { name: "Mountain View Lodge", price: 95, partnerId: partnerC.id },
       { name: "City Center Inn", price: 60, partnerId: partnerD.id },
